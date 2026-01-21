@@ -1,0 +1,9 @@
+{ "Retrieval": "Where the model retrieves, recalls, or explicitly states known facts, definitions, formulas, or world knowledge to use in solving the problem.",
+  "Reframing": "Where the model rephrases a question or problem to clarify its understanding or to approach it from a different angle. This includes paraphrasing, summarizing, or changing the perspective of the question.",
+  "Logical Reasoning": "Where the model uses logical reasoning to arrive at the answer. This includes deductive reasoning, inductive reasoning, and other forms of logical inference.",
+  "Calculation": "Where the model performs a calculation to arrive at the answer. This includes arithmetic operations, algebraic manipulations, or any other mathematical operations.",
+  "Subgoal setting": "Where the model breaks down the problem into smaller, intermediate goals (e.g., 'To solve this, we first need to...' or 'First, I'll try to ..., then ...)'",
+  "Backtracking": "Where the model realizes a path won't work and explicitly goes back to try a different approach. An example of backtracking is: 'Let me try again' or 'we need to try a different approach'.",
+  "Verification": "Where the model checks the correctness of any results to make it is correct. This includes intermediate and final results.",
+  "Backward chaining": "Where the model works backward from its answer to see whether it can derive the variables in the original problem."
+}
