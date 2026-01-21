@@ -159,6 +159,47 @@ python scripts/multilingual_sprig/advanced_rlga_20250512_rand.py \
     --retrain
 ```
 
+### Reasoning Pattern Analysis (Experiment 3)
+
+Experiment 3 performs fine-grained reasoning pattern analysis on model outputs.  
+It consists of two stages:
+
+1. **Reasoning Step Segmentation**: split raw model outputs into atomic reasoning steps.
+2. **Reasoning Type Classification**: classify each reasoning step into predefined reasoning categories using an LLM.
+
+This experiment enables large-scale analysis of reasoning structure, step distribution, and reasoning-type frequency across prompts, languages, and benchmarks.
+
+#### Step 1: Reasoning Step Segmentation
+
+A trained token classification model is used to predict step boundaries in model-generated reasoning traces.  
+Line breaks are replaced with a special separator token (`[SEP]`), and the model predicts whether each separator corresponds to a step boundary.
+
+```bash
+python scripts/response_analysis/segmentation/predict_step_splits.py \
+    --model_path <SEGMENTATION_MODEL_PATH> \
+    --input_jsonl <INPUT_JSONL> \
+    --output_jsonl <OUTPUT_JSONL> \
+    --batch_size 300
+```
+
+The output JSONL file contains:
+
+- `formatted_steps`: list of segmented reasoning steps  
+- `num_steps`: number of reasoning steps  
+- original metadata fields preserved  
+
+#### Step 2: Reasoning Type Classification
+
+Each segmented reasoning step is classified into a predefined reasoning type using an instruction-following LLM (e.g., Qwen or LLaMA) via vLLM.
+
+```bash
+python scripts/response_analysis/classification/classify_reasoning_steps.py \
+    --model_name Qwen/Qwen2.5-7B-Instruct \
+    --input_jsonl <SEGMENTED_JSONL> \
+    --reasoning_kind_def_json <REASONING_TYPE_DEFINITIONS_JSON> \
+    --output_jsonl <OUTPUT_JSONL> \
+    --batch_size 300
+```
 
 
 ## 🔬 Evaluation Framework
