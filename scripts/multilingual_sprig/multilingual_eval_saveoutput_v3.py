@@ -26,21 +26,19 @@ gemma_template = '''<bos><start_of_turn>user\n{system_prompt}\n\n{user_prompt}<e
 translate_cache_dir = f'''./cache/translation_cache.json'''
 #multiprocessing.set_start_method("spawn", force=True)
 
-def worker(gpu_id, task_queue, result_queue, model_name):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+def worker(gpu_group, task_queue, result_queue, model_name):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in gpu_group)
     from lib.modelloader import inference_model
-    model_obj = inference_model(model_name, use_vllm=True, cache_dir="/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/models")
-    result_queue.put((gpu_id, "success"))
+    model_obj = inference_model(model_name, use_vllm=True, multi_thread=len(gpu_group))
+    result_queue.put((gpu_group[0], "success"))
     while True:
         task = task_queue.get()
         if task is None:
-            print(f"{gpu_id} is stopping.")
+            print(f"{gpu_group} is stopping.")
             break
         task_idx, task_data = task
-        # print(f"{gpu_id} is processing data: {len(task_data)}")
         full_outputs = model_obj.generate(task_data, max_token_len=4096)
         result_queue.put((task_idx, full_outputs))
-        # print(f"{gpu_id} has finished processing data: {len(task_data)}")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -50,6 +48,7 @@ def main():
     parser.add_argument("--task_lang", type=str, default="en")
     parser.add_argument("--benchmark", type=str, default="math500")
     parser.add_argument("--gpu_ids", type=int, nargs='+', default=[0, 1])
+    parser.add_argument("--gpus_per_model", type=int, default=1, help="GPUs per model instance; auto-groups gpu_ids for tensor parallelism")
     parser.add_argument("--num_prompts", type=int, default=1000)
     parser.add_argument("--num_questions", type=int, default=100)
     parser.add_argument("--output_dir", type=str, default="/shared/3/projects/multilingual-system-prompting")
@@ -66,17 +65,19 @@ def main():
     else:
         print("Error, unexpected LLM.")
     
-    # Multigpu settings
+    # Multigpu settings — group GPUs into chunks, each chunk runs one model instance
     GPU_IDX_LIST = args.gpu_ids
+    gpus_per_model = args.gpus_per_model
+    gpu_groups = [GPU_IDX_LIST[i:i+gpus_per_model] for i in range(0, len(GPU_IDX_LIST), gpus_per_model)]
     task_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
     workers = []
-    for i in GPU_IDX_LIST:
-        process = multiprocessing.Process(target=worker, args=(i, task_queue, result_queue, args.model_name))
+    for group in gpu_groups:
+        process = multiprocessing.Process(target=worker, args=(group, task_queue, result_queue, args.model_name))
         process.start()
         workers.append(process)
     # Verify success
-    for _ in GPU_IDX_LIST:
+    for _ in gpu_groups:
         load_signal = result_queue.get()
         assert load_signal[1] == "success"
 
@@ -130,7 +131,7 @@ def main():
                     full_prompt = PROMPT_TEMPLATE.format(system_prompt=system_prompt, user_prompt=user_prompt.replace("{question_prompt}", q))
                     input_prompts.append(full_prompt)
 
-            num_splits = len(GPU_IDX_LIST)
+            num_splits = len(gpu_groups)
             tasks = [(ii, input_prompts[ii*len(input_prompts)//num_splits:(ii+1)*len(input_prompts)//num_splits]) for ii in range(num_splits)]
             for task in tasks:
                 task_queue.put(task)
