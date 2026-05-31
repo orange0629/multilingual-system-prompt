@@ -59,25 +59,18 @@ gemma_template_task_only = '''<bos><start_of_turn>user\n{user_prompt}<end_of_tur
 
 benchmark_obj_list = [(init_benchmark(name=tmp_bench_name, cot=0), 50) for tmp_bench_name in ["mmlu_pro", "math500", "unimoral"]]
 
-def worker(gpu_id, model_name, task_queue, result_queue):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+def worker(gpu_group, model_name, task_queue, result_queue):
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(g) for g in gpu_group)
     from lib.modelloader import inference_model
-    if gpu_id == 1:   
-        model_obj = inference_model(model_name, use_vllm=True, cache_dir="/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/models/")
-    else:
-        sleep(60)
-        model_obj = inference_model(model_name, use_vllm=True, cache_dir="/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/models/")
-    result_queue.put((gpu_id, "success"))
+    model_obj = inference_model(model_name, use_vllm=True, cache_dir="/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/models/", multi_thread=len(gpu_group))
+    result_queue.put((gpu_group[0], "success"))
     while True:
         task = task_queue.get()
         if task is None:
-            # print(f"{gpu_id} is stopping.")
             break
         task_idx, task_data = task
-        # print(f"{gpu_id} is processing data: {len(task_data)}")
         full_outputs, full_outputs_length = model_obj.generate(task_data, max_token_len=4096, return_length=True)
         result_queue.put((task_idx, full_outputs, full_outputs_length))
-        # print(f"{gpu_id} has finished processing data: {len(task_data)}")
 
 def is_all_equal(labels):
     unique_labels = set(labels)
@@ -412,7 +405,7 @@ class GeneticRLPrompter:
                         full_prompt = PROMPT_TEMPLATE.format(system_prompt=system_prompt, user_prompt=user_prompt.replace("{question_prompt}", q))
                         input_prompts.append(full_prompt)
 
-                num_splits = len(GPU_IDX_LIST)
+                num_splits = len(gpu_groups)
                 tasks = [(ii, input_prompts[ii*len(input_prompts)//num_splits:(ii+1)*len(input_prompts)//num_splits]) for ii in range(num_splits)]
                 for task in tasks:
                     task_queue.put(task)
@@ -749,6 +742,7 @@ if __name__ == "__main__":
     parser.add_argument('--retrain', default=False, action='store_true')
     parser.add_argument('--output_dir', type=str, help="Path to save the trained model")
     parser.add_argument('--cache_dir', type=str, help="Path to save the trained model")
+    parser.add_argument('--gpus_per_model', type=int, default=1, help="GPUs per model instance (tensor_parallel_size)")
     # parser.add_argument('--mode', choices=['train', 'test'], required=True, help="Mode: train or test")
     # parser.add_argument('--base_model', type=str, required=True, help="Path to base model")
     # parser.add_argument('--model_checkpoint', type=str, help="Path to the model checkpoint")
@@ -769,19 +763,23 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Arguments: {args}")
 
-    # Multigpu settings
+    # Multigpu settings — GPU 0 reserved for reward model; workers span the rest.
+    # Only complete groups are formed; remainder GPUs are left unused.
     GPU_IDX_LIST = [1,2,3,4,5,6,7]
-    print(f"Using GPUs: {GPU_IDX_LIST}")
+    gpus_per_model = args.gpus_per_model
+    num_groups = len(GPU_IDX_LIST) // gpus_per_model
+    gpu_groups = [GPU_IDX_LIST[i*gpus_per_model:(i+1)*gpus_per_model] for i in range(num_groups)]
+    print(f"Using GPU groups: {gpu_groups}")
     task_queue = multiprocessing.Queue()
     result_queue = multiprocessing.Queue()
     workers = []
-    for i in GPU_IDX_LIST:
-        process = multiprocessing.Process(target=worker, args=(i, args.model_name, task_queue, result_queue))
+    for group in gpu_groups:
+        process = multiprocessing.Process(target=worker, args=(group, args.model_name, task_queue, result_queue))
         process.start()
         workers.append(process)
-        print(f"Started worker on GPU {i}")
+        print(f"Started worker on GPUs {group}")
     # Verify success
-    for _ in GPU_IDX_LIST:
+    for _ in gpu_groups:
         load_signal = result_queue.get()
         assert load_signal[1] == "success"
         print(f"Worker on GPU {load_signal[0]} successfully loaded model")
