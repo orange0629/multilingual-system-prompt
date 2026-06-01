@@ -16,6 +16,9 @@ languages = {
     "pt": "Portuguese",
     "ru": "Russian",
     "ur": "Urdu",
+    "sw": "Swahili",
+    "te": "Telugu",
+    "th": "Thai",
 }
 
 answer_identifiers = {
@@ -29,6 +32,9 @@ answer_identifiers = {
     "pt": "Resposta:",
     "ru": "Ответ:",
     "ur": "جواب:",
+    "sw": "Jibu:",
+    "te": "సమాధానం:",
+    "th": "คำตอบ:",
 }
 
 def translate_text(text, source="en", target="zh-CN"):
