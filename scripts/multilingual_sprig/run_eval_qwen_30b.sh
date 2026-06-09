@@ -13,7 +13,13 @@
 # source ~/.bashrc
 # conda activate /scratch/wangluxy_root/wangluxy1/leczhang/envs/prompting
 #python3.11-anaconda/2024.02
-export HF_HUB_CACHE=/shared/4/models/
+module load cuda/12.6.3
+module load gcc/13.2.0
+source ~/.bashrc
+conda activate /scratch/wangluxy_root/wangluxy1/leczhang/envs/prompting
+
+export CUDA_MPS_PIPE_DIRECTORY=/tmp/nvidia-mps
+export HF_HUB_CACHE=/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/models
 
 
 # export LD_LIBRARY_PATH=/home/leczhang/.local/lib/python3.11/site-packages/nvidia/nvjitlink/lib:$LD_LIBRARY_PATH
@@ -24,14 +30,14 @@ python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instr
 python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "fr" --benchmark "mmlu_pro" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
 python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "hi" --benchmark "mmlu_pro" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
 
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "en" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "zh" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "es" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "fr" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "hi" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "en" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "zh" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "es" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "fr" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "hi" --benchmark "math500" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
 
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "en" --benchmark "unimoral" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "zh" --benchmark "unimoral" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "es" --benchmark "unimoral" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "fr" --benchmark "unimoral" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
-# python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "hi" --benchmark "unimoral" --gpu_ids 0 1 2 3 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "en" --benchmark "unimoral" --gpu_ids 0 1 2 3 4 5 6 7 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "zh" --benchmark "unimoral" --gpu_ids 0 1 2 3 4 5 6 7 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "es" --benchmark "unimoral" --gpu_ids 0 1 2 3 4 5 6 7 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "fr" --benchmark "unimoral" --gpu_ids 0 1 2 3 4 5 6 7 --gpus_per_model 2 --output_dir "./results/"
+python multilingual_eval_saveoutput_v3.py --model_name "Qwen/Qwen3-30B-A3B-Instruct-2507" --sys_lang "en" --task_lang "hi" --benchmark "unimoral" --gpu_ids 0 1 2 3 4 5 6 7 --gpus_per_model 2 --output_dir "./results/"

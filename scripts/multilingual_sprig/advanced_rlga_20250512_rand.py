@@ -261,31 +261,39 @@ No additional explanations or formatting, only return a sentence."""
 
 class GeneticRLPrompter:
     
-    def __init__(self, init_components, reward_checkpoint):
-        self.population = [[c] for c in list(init_components["prompt"])]  # Initial single-component prompts
-        print(f"Initialized population with {len(self.population)} components")
+    def __init__(self, init_components, reward_checkpoint, resume_state=None, normalizer_path=None):
+        if resume_state is not None:
+            self.population = resume_state["population"]
+            self.step_idx = resume_state["step_idx"]
+            self.optimize_history = resume_state["optimize_history"]
+            self.eval_score_history = resume_state["eval_score_history"]
+            self.edit_history = resume_state["edit_history"]
+            print(f"Resumed from step {self.step_idx} with population size {len(self.population)}")
+        else:
+            self.population = [[c] for c in list(init_components["prompt"])]  # Initial single-component prompts
+            print(f"Initialized population with {len(self.population)} components")
+            self.optimize_history = []
+            self.eval_score_history = []
+            self.edit_history = []
+            self.step_idx = 0
 
-        self.normalizer = MinMaxNormalizer.load(os.path.join(reward_checkpoint, "normalizer.json"))
+        self.normalizer = MinMaxNormalizer.load(os.path.join(normalizer_path or reward_checkpoint, "normalizer.json"))
         self.reward_tokenizer = AutoTokenizer.from_pretrained(reward_checkpoint)
         self.reward_model = AutoModelForSequenceClassification.from_pretrained(
-            reward_checkpoint, 
+            reward_checkpoint,
             num_labels=len(METRIC_COLS),  # Now outputs multiple metrics
-            torch_dtype=torch.bfloat16, 
+            torch_dtype=torch.bfloat16,
         )
         print(f"Loaded reward model from {reward_checkpoint}")
         self.reward_model.to("cuda:0")
         if self.reward_tokenizer.pad_token is None:
             self.reward_tokenizer.pad_token = self.reward_tokenizer.eos_token
             self.reward_model.config.pad_token_id = self.reward_tokenizer.eos_token_id
-        
+
         self.component_type_mapping = {}
         for index, row in init_components.iterrows():
             self.component_type_mapping[row['prompt']] = [row["category"]]
         self.component_pool = init_components
-        self.optimize_history = []
-        self.eval_score_history = []
-        self.edit_history = []
-        self.step_idx = 0
         print("GeneticRLPrompter initialization complete")
     
     def save_history(self, args):
@@ -620,7 +628,7 @@ class GeneticRLPrompter:
         # Stage 5: Update reward model if retraining is enabled
         if args.retrain:
             print(f"Retraining reward model at step {self.step_idx}")
-            from reward_modeling.main_multi_metric_one import PairwiseTrainer, RewardConfig, RewardDataCollatorWithPadding, build_pairs, make_tok_pair_fn, compute_accuracy
+            from reward_modeling.main_multi_metric import PairwiseTrainer, RewardConfig, RewardDataCollatorWithPadding, build_pairs, make_tok_pair_fn, compute_accuracy
             from sklearn.model_selection import train_test_split
             
             prompt_template = "{system_prompt}"
@@ -700,7 +708,7 @@ class GeneticRLPrompter:
             trainer = PairwiseTrainer(
                 model=self.reward_model,
                 args=train_args,
-                tokenizer=self.reward_tokenizer,
+                processing_class=self.reward_tokenizer,
                 train_dataset=train_ds,                            # already tokenised
                 eval_dataset=dev_ds,
                 data_collator=RewardDataCollatorWithPadding(self.reward_tokenizer),
@@ -743,6 +751,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_dir', type=str, help="Path to save the trained model")
     parser.add_argument('--cache_dir', type=str, help="Path to save the trained model")
     parser.add_argument('--gpus_per_model', type=int, default=1, help="GPUs per model instance (tensor_parallel_size)")
+    parser.add_argument('--resume', default=False, action='store_true', help="Resume from last checkpoint in output_dir/cache_dir")
     # parser.add_argument('--mode', choices=['train', 'test'], required=True, help="Mode: train or test")
     # parser.add_argument('--base_model', type=str, required=True, help="Path to base model")
     # parser.add_argument('--model_checkpoint', type=str, help="Path to the model checkpoint")
@@ -757,11 +766,57 @@ if __name__ == "__main__":
     # parser.add_argument('--max_model_length', type=int, default=1024, help="Evaluation batch size")
 
     print("Starting RLGA experiment")
-    wandb.init(project="sprig_multilingual")
-    print(f"Wandb initialized with project: sprig_multilingual")
-
     args = parser.parse_args()
     print(f"Arguments: {args}")
+
+    model_suffix = args.model_name.split('/')[-1]
+    resume_state = None
+    reward_checkpoint = args.reward_path
+
+    if args.resume:
+        history_path = os.path.join(args.output_dir, f"rlga_history_{model_suffix}_20250420.jsonl")
+        score_history_path = os.path.join(args.output_dir, f"rlga_score_history_{model_suffix}_20250420.jsonl")
+        edit_history_path = os.path.join(args.output_dir, f"rlga_edit_history_{model_suffix}_20250420.jsonl")
+
+        if not os.path.exists(history_path):
+            raise FileNotFoundError(f"No history file found at {history_path}. Cannot resume.")
+
+        optimize_history = []
+        with open(history_path, "r", encoding="utf-8") as f:
+            for line in f:
+                optimize_history.append(json.loads(line))
+
+        eval_score_history = []
+        with open(score_history_path, "r", encoding="utf-8") as f:
+            for line in f:
+                eval_score_history.append(json.loads(line))
+
+        edit_history = []
+        with open(edit_history_path, "r", encoding="utf-8") as f:
+            for line in f:
+                edit_history.append(json.loads(line))
+
+        last_entry = optimize_history[-1]
+        last_step = last_entry["step"]
+        print(f"Resuming from step {last_step}, population size {len(last_entry['population'])}")
+
+        if args.retrain and os.path.isdir(args.cache_dir):
+            checkpoint_dirs = [
+                d for d in os.listdir(args.cache_dir)
+                if d.startswith("reward_model_") and os.path.isdir(os.path.join(args.cache_dir, d))
+            ]
+            if checkpoint_dirs:
+                checkpoint_dirs.sort(key=lambda x: int(x.split("_")[2]))
+                reward_checkpoint = os.path.join(args.cache_dir, checkpoint_dirs[-1])
+                print(f"Using retrained reward model from {reward_checkpoint}")
+
+        resume_state = {
+            "population": last_entry["population"],
+            "step_idx": last_step,
+            "optimize_history": optimize_history,
+            "eval_score_history": eval_score_history,
+            "edit_history": edit_history,
+        }
 
     # Multigpu settings — GPU 0 reserved for reward model; workers span the rest.
     # Only complete groups are formed; remainder GPUs are left unused.
@@ -783,7 +838,13 @@ if __name__ == "__main__":
         load_signal = result_queue.get()
         assert load_signal[1] == "success"
         print(f"Worker on GPU {load_signal[0]} successfully loaded model")
-    
+
+    # wandb.init() must come after workers are spawned and ready — initializing
+    # wandb before fork leaves its background threads in a broken state in child
+    # processes, causing deadlocks during vLLM's inter-process setup.
+    wandb.init(project="sprig_multilingual")
+    print(f"Wandb initialized with project: sprig_multilingual")
+
     os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
     # with open("./data/system_prompts/dynamic_components_20250127.json", "r", encoding="utf-8") as file:
@@ -792,9 +853,10 @@ if __name__ == "__main__":
     init_components = pd.read_json("./data/system_prompts/generated_prompt_components_20250315.jsonl", lines=True)
     print(f"Loaded {len(init_components)} prompt components")
     
-    optimizer = GeneticRLPrompter(init_components, args.reward_path)
-    
-    for generation in range(25):  # 运行50代
+    optimizer = GeneticRLPrompter(init_components, reward_checkpoint, resume_state=resume_state, normalizer_path=args.reward_path)
+
+    start_generation = optimizer.step_idx
+    for generation in range(start_generation, 25):
         print(f"\n=================== Generation {generation+1}/25 ===================")
         optimizer.evolutionary_step(args)
         optimizer.save_history(args)

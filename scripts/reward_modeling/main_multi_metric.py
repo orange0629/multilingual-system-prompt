@@ -329,7 +329,7 @@ def train_model(args):
     trainer = PairwiseTrainer(
         model=model,
         args=train_args,
-        tokenizer=tokenizer,                               # required for saving / gen
+        processing_class=tokenizer,                        # required for saving / gen
         train_dataset=train_ds,                            # already tokenised
         eval_dataset=dev_ds,
         data_collator=RewardDataCollatorWithPadding(tokenizer),

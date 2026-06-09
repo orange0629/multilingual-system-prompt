@@ -24,4 +24,5 @@ python scripts/multilingual_sprig/advanced_rlga_20250512_rand.py \
 --cache_dir "/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/reward_models_multilingual/qwen3_30b_cache_rand" \
 --output_dir "/scratch/qdj_project_owned_root/qdj_project_owned3/leczhang/reward_models_multilingual/qwen3_30b_cache_rand/results" \
 --gpus_per_model 2 \
---retrain
+--retrain \
+--resume

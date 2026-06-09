@@ -32,6 +32,8 @@ class inference_model:
                 self.model = LLM(model=model_dir, download_dir=cache_dir, tensor_parallel_size=multi_thread)
             elif "nemo" in self.model_dir.lower():
                 self.model = LLM(model=model_dir, download_dir=cache_dir, tensor_parallel_size=multi_thread, max_model_len=4096)
+            elif "qwen3-30b" in self.model_dir.lower():
+                self.model = LLM(model=model_dir, download_dir=cache_dir, tensor_parallel_size=multi_thread, max_model_len=102400)
             else:
                 self.model = LLM(model=model_dir, download_dir=cache_dir, trust_remote_code=True, tensor_parallel_size=multi_thread)
         else:
